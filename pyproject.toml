@@ -1,0 +1,163 @@
+[tool.poetry]
+name = "test_project"
+version = "0.1.0"
+description = "Test project to see if this works"
+authors = ["Richard Jensen <richard.jensen@csiro.au>"]
+
+packages = [
+    { include = "test_project/**/*", from = "src" }, # need to specify the packages for `poetry build` to include
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+loguru = "^0.5.3"
+nbmake = "^1.3.4"
+pre-commit = "^3.3.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^6.2.3"
+Sphinx = "^4.2.0"
+sphinx-rtd-theme = "^1.0.0"
+myst-parser = "^0.15.2"
+rst-to-myst = { extras = ["sphinx"], version = "^0.3.2" }
+coverage = "^5.5"
+pip-licenses = "^3.5.2"
+pylint = "^2.11.1"
+pyproject-flake8 = "^0.0.1-alpha.4"
+pytest-cov = "^3.0.0"
+poethepoet = "^0.18.1"
+nbmake = "^1.3.4"
+
+[build-system]
+requires = ["setuptools", "poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# Automation of common build tasks etc.  Run with: `poe <target>`, eg. `poe clean`.
+# See https://github.com/nat-n/poethepoet for details.
+[tool.poe.tasks]
+run = { cmd = "poetry run python src/test_project/example.py", help = "Run the project" }
+clean = { cmd = "rm -rf .coverage .mypy_cache .pytest_cache dist ./**/__pycache__ docs/build/ dist docs/build docs/source/_static docs/source/wpf.*.rst", help = "Clean up build artifacts" }
+clean_outputs = {cmd = "rm -rf output/ results/", help= "Cleans output dirs: output/ & results/"}
+precommit = { cmd = "poetry run pre-commit run", help = "Run pre-commit hooks" }
+test = { cmd = "poetry run pytest", help = "Run tests with pytest" }
+publish = { cmd = "poetry publish --build --remote csiroenergy", help = "Publish the package to private pypi repo" }
+docker_build = { cmd = "docker-compose build", help = "Build the docker-compose images" }
+docker_run = { cmd = "docker-compose run run", help = "Run the main docker-compose container" }
+docker_test = { cmd = "docker-compose run test", help = "Run the test docker-compose container" }
+doc.sequence = ["_doc_dir", "_pyreverse", "_apidoc", "_sphinx", "show_doc"]
+doc.help = "Build the documentation"
+show_doc = { expr = "webbrowser.open('file://' + str(pathlib.Path('docs/build/index.html').resolve()))", imports = ["webbrowser", "pathlib"], help = "Open the documentation in a browser (experimental)." }
+
+# Internal tasks used by other tasks, not callable directly
+_doc_dir = { script = "os:makedirs('docs/source/_static', exist_ok=True)" }
+_pyreverse = { cmd = "pyreverse --output-directory=docs/source/_static/ --output png src/test_project" }
+_licenses = { cmd = "pip-licenses -f md --output-file docs/source/licenses.md" }
+_apidoc = { cmd = "sphinx-apidoc -f -o docs/source/ src/" }
+_sphinx = { cmd = "sphinx-build -b html docs/source docs/build" }
+
+# Add our private package index. Add via thispoe command in poetry >=1.2: `poetry source add --secondary csiroenergy https://pkgs.dev.azure.com/csiro-energy/csiro-energy/_packaging/csiro-python-packages/pypi/simple/`
+# If uncommenting this block, you also need to generate a token at https://dev.azure.com/csiro-energy/_usersSettings/tokens and run these commands for authentication:
+#   poetry config repositories.csiroenergy https://pkgs.dev.azure.com/csiro-energy/csiro-energy/_packaging/csiro-python-packages/pypi/upload
+#   poetry config http-basic.csiroenergy <ident> <paste-your-token>
+#[[tool.poetry.source]]
+#name = "csiroenergy"
+#url = "https://pkgs.dev.azure.com/csiro-energy/csiro-energy/_packaging/csiro-python-packages/pypi/simple/"
+#secondary = true # if this is true, it will be checked after the main index
+#default = false # if true, this index will be checked before other repos declared in pyproject.toml.
+
+# Config for various pre-commit checks are below
+
+[tool.autopep8]
+max-line-length = 200
+ignore = "E501,W6,E704,W505"
+in-place = true
+recursive = true
+aggressive = 3
+
+[tool.flake8]
+max-line-length = 200
+extend-ignore = "E203," # See https://flake8.pycqa.org/en/3.1.1/user/error-codes.html for descriptions
+max-complexity = 13
+directories = "src,src/tests"
+exclude = "scripts/*.py"
+
+[tool.black]
+line-length = 200
+target-version = ['py38']
+include = '.pyi?$'
+
+[tool.mypy]
+# Static type-checking. Debug with `pre-commit run mypy`.
+# This config will only enforce typing if you choose to add type annotations. It will ignore code without any annotations.
+# Cheat sheet: https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html
+# Good guide: https://breadcrumbscollector.tech/mypy-how-to-use-it-in-my-project/
+
+# SET TO FALSE TO ENABLE MYPY
+# 'false' enables basic checks on optional type hints
+ignore_errors = false
+
+warn_unused_configs = true
+ignore_missing_imports = true
+pretty = false
+exclude = "src/tests/**/*.py"
+files = ["src/**/*.py"]
+implicit_reexport = true
+
+
+# Uncomment to enable more checks - forcing type hints to be used everywhere.
+#strict_optional = true
+#warn_unused_ignores = true
+#check_untyped_defs = true
+#disallow_untyped_defs = true
+#warn_return_any = true
+#warn_unreachable = true
+#warn_redundant_casts = true
+
+# these options are quite restrictive, disabled
+disallow_any_generics = true
+no_implicit_reexport = true
+
+# See https://bandit.readthedocs.io/en/latest/man/bandit.html?highlight=recursive#options and https://bandit.readthedocs.io/en/latest/config.html?highlight=pyproject.toml#bandit-settings
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "scripts" ]
+skips = ["B101", "B301", "B403", "B404", "B501"]
+exclude = ["*_test.py", "test_*.py"]
+
+# Checks that no 'viral' licensed libraries are in use.
+[tool.liccheck]
+authorized_licenses = [
+    "bsd",
+    "new bsd",
+    "bsd license",
+    "new bsd license",
+    "simplified bsd",
+    "apache",
+    "apache 2.0",
+    "apache software license",
+    "gnu lgpl",
+    "lgpl with exceptions or zpl",
+    "isc license",
+    "isc license (iscl)",
+    "mit",
+    "mit license",
+    "python software foundation license",
+    "zpl 2.1",
+]
+unauthorized_licenses = [
+    "gpl",
+    "gpl v2",
+    "gpl v3",
+]
+level = "STANDARD"
+reporting_txt_file = "docs/source/license-check.txt"
+dependencies = true # to load [project.dependencies]
+optional_dependencies = ["test"] # to load extras from [project.optional-dependencies]
+
+[tool.liccheck.authorized_packages]
+uuid = 1.30
+
+# see https://docs.pytest.org/en/6.2.x/customize.html and https://docs.pytest.org/en/6.2.x/reference.html#ini-options-ref
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::DeprecationWarning"]
+# default pytest args for coverage report to console+html (cov-report), reporting long-running tests (durations-min), native stacktraces (tb=native), and jupyer notebook running (nbmake)
+addopts = '--cov-report term-missing --cov-report html --cov=src/ --durations=0 --durations-min=5.0 --tb=native --nbmake src/ --nbmake-timeout=5000'

@@ -1,0 +1,16 @@
+#  Basic bitbucket pipeline for creating poetry environment and running unit tests.
+# Note that this works on bitbucket.com, if Pipelines are enabled, but probably won't work on Bitbucket Server.
+
+image: python:3.9
+
+pipelines:
+  default:
+    - step:
+        name: Test & build
+        script:
+          - curl -sSL https://install.python-poetry.org | python3 - --version 1.2.0
+          - export PATH="/root/.local/bin:$PATH" # Add poetry to PATH
+          - poetry install --no-interaction --no-root --sync # install dependencies
+          - chmod +x scripts/*.sh # make scripts executable
+          - poetry run scripts/test.sh # run unit tests
+          - poetry build # build package

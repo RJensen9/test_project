@@ -1,0 +1,37 @@
+# Builds a single image from our source code, and creates two containers, one for deployment, the other for running unit tests.
+
+# To build and run:
+#     docker-compose build
+# To run for testing:
+#     docker-compose up
+# To run in the background (detached):
+#     docker-compose up -d
+# To Troubleshoot:
+#     docker-compose run --entrypoint /bin/bash --rm test_project
+
+version: '3.9'
+
+services:
+
+  run:
+    image: test_project
+    environment:
+      TZ: "Australia/Sydney" # Set the container's timezone, otherwise it defaults to UTC
+    build:
+      context: .
+    restart: 'no'
+    entrypoint: poetry run poe run
+    volumes:
+      - ./data:/usr/src/app/test_project/data
+      - ./output:/usr/src/app/test_project/output
+      - ./src/config:/usr/src/app/test_project/config
+
+  test:
+    image: test_project
+    entrypoint: poetry run poe test
+    restart: 'no'
+    # Mount local data and output dirs into container
+    volumes:
+      - ./data:/usr/src/app/test_project/data
+      - ./output:/usr/src/app/test_project/output
+      - ./src/config:/usr/src/app/test_project/config
